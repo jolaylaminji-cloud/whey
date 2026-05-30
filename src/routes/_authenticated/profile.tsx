@@ -24,6 +24,10 @@ function ProfilePage() {
   } | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [email, setEmail] = useState("");
 
   useEffect(() => {
@@ -70,6 +74,31 @@ function ProfilePage() {
   async function signOut() {
     await supabase.auth.signOut();
     navigate({ to: "/login", replace: true });
+  }
+
+  async function changePassword() {
+    if (!email) return toast.error(t("something_wrong"));
+    if (!currentPassword) return toast.error(t("password_current_required"));
+    if (newPassword.length < 6) return toast.error(t("password_min_length"));
+    if (newPassword !== confirmPassword) return toast.error(t("passwords_must_match"));
+
+    setPasswordSaving(true);
+    try {
+      const { error: verifyError } = await supabase.auth.signInWithPassword({ email, password: currentPassword });
+      if (verifyError) throw verifyError;
+
+      const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
+      if (updateError) throw updateError;
+
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      toast.success(t("password_change_saved"));
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : t("password_change_failed"));
+    } finally {
+      setPasswordSaving(false);
+    }
   }
 
   async function onAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -159,6 +188,45 @@ function ProfilePage() {
               <option value="cut">{t("goal_cut")}</option><option value="maintain">{t("goal_maintain")}</option><option value="bulk">{t("goal_bulk")}</option>
             </select>
           </Row>
+        </Group>
+
+        <Group title={t("change_password")}>
+          <Row label={t("current_password")}>
+            <input
+              type="password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              autoComplete="current-password"
+              className="bg-transparent text-right focus:outline-none"
+            />
+          </Row>
+          <Row label={t("new_password")}>
+            <input
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              autoComplete="new-password"
+              className="bg-transparent text-right focus:outline-none"
+            />
+          </Row>
+          <Row label={t("confirm_password")}>
+            <input
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              autoComplete="new-password"
+              className="bg-transparent text-right focus:outline-none"
+            />
+          </Row>
+          <div className="px-4 py-3.5">
+            <button
+              onClick={changePassword}
+              disabled={passwordSaving}
+              className="w-full rounded-2xl bg-surface text-brand py-3.5 font-semibold disabled:opacity-50"
+            >
+              {passwordSaving ? t("saving") : t("change_password")}
+            </button>
+          </div>
         </Group>
 
         <button onClick={save} disabled={saving} className="w-full rounded-2xl bg-foreground text-brand py-3.5 font-semibold disabled:opacity-50">
